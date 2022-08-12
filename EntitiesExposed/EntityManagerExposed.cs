@@ -47,10 +47,70 @@ namespace Unity.Entities.Exposed
             var entityInChunk = ecs->GetEntityInChunk(entity);
             return entityInChunk.IndexInChunk;
         }
-
-        [BurstCompatible]
-        public static ComponentDataFromEntityExposed<T> GetExposedCDFE<T>(this EntityManager entityManager, bool isReadOnly) where T : struct, IComponentData
+        
+        public static ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(this EntityManager entityManager, bool isReadOnly = false)
+            where T : struct, IComponentData
         {
+            return entityManager.GetComponentDataFromEntity<T>(isReadOnly);
+        }
+        
+        public static StorageInfoFromEntity GetStorageInfoFromEntity(this EntityManager entityManager)
+        {
+            return entityManager.GetStorageInfoFromEntity();
+        }
+        
+        public static StorageInfoExposed GetStorageInfoExposed(this ComponentSystemBase systemBase)
+        {
+            return new StorageInfoExposed(systemBase.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore);
+        }
+        
+        [BurstCompatible]
+        public static ComponentDataFromEntityExposed<T> GetComponentDataFromEntityExposed<T>(this ComponentSystemBase systemBase, bool isReadOnly) where T : unmanaged, IComponentData
+        {
+            systemBase.CheckedState()->AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+            var entityManager = systemBase.EntityManager;
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var ecs = entityManager.GetCheckedEntityDataAccess();
+            //var ecs = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var safetyHandles = &ecs->DependencyManager->Safety;
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs,
+                safetyHandles->GetSafetyHandleForComponentDataFromEntity(typeIndex, isReadOnly));
+#else
+            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs);
+#endif
+        }
+        
+        [BurstCompatible]
+        public static ComponentDataFromEntityExposed<T> GetComponentDataFromEntityExposed<T>(this SystemState systemState, bool isReadOnly) where T : unmanaged, IComponentData
+        {
+            systemState.AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+            var entityManager = systemState.EntityManager;
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var ecs = entityManager.GetCheckedEntityDataAccess();
+            //var ecs = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var safetyHandles = &ecs->DependencyManager->Safety;
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs,
+                safetyHandles->GetSafetyHandleForComponentDataFromEntity(typeIndex, isReadOnly));
+#else
+            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs);
+#endif
+        }
+        
+        [BurstCompatible]
+        public static ComponentDataFromEntityExposed<T> GetComponentDataFromEntityExposed<T>(this EntityManager entityManager, bool isReadOnly) where T : unmanaged, IComponentData
+        {
+            //systemState.AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+            //var entityManager = systemState.EntityManager;
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var ecs = entityManager.GetCheckedEntityDataAccess();
             //var ecs = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
@@ -72,6 +132,8 @@ namespace Unity.Entities.Exposed
         // {
         //     return entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
         // }
+        
+        
     }
 
     [NativeContainer]
