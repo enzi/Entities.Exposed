@@ -15,7 +15,7 @@ Inside System - change:
 ```
 to:
 ```
-  var Health_WriteLookup =EntityManager.GetExposedCDFE<Health>(false);
+  var Health_WriteLookup =EntityManager.GetUnsafeCDFE<Health>(false);
 ```
   
 Now you can query health and get a ref:
