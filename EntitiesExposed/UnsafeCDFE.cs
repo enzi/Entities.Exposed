@@ -34,7 +34,7 @@ namespace Unity.Entities.Exposed
     /// [NativeDisableParallelForRestrictionAttribute]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeDisableParallelForRestrictionAttribute.html
     /// </remarks>
     [NativeContainer]
-    public unsafe struct ComponentDataFromEntityExposed<T> where T : unmanaged, IComponentData
+    public unsafe struct UnsafeCDFE<T> where T : unmanaged, IComponentData
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         readonly AtomicSafetyHandle      m_Safety;
@@ -49,7 +49,7 @@ namespace Unity.Entities.Exposed
         LookupCache                      m_Cache;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal ComponentDataFromEntityExposed(int typeIndex, EntityDataAccess* access, AtomicSafetyHandle safety)
+        internal UnsafeCDFE(int typeIndex, EntityDataAccess* access, AtomicSafetyHandle safety)
         {
             m_Safety = safety;
             m_TypeIndex = typeIndex;
@@ -216,28 +216,29 @@ namespace Unity.Entities.Exposed
                 chunk->SetChangeVersion(m_Cache.IndexInArcheType, m_GlobalSystemVersion);
         }
 		
-// 		public bool TryGetComponentRefRW(Entity entity, out void* ptr)
-//         {
-// #if ENABLE_UNITY_COLLECTIONS_CHECKS
-//             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
-// #endif
-//             CheckComponentIsZeroSized();
-//
-//             var ecs = m_Access->EntityComponentStore;
-//
-//             var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
-//             if (hasComponent)
-//             {
-//                 ptr = ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);                
-//             }
-//             else
-//             {
-//                 ptr = null;
-//                 return false;
-//             }
-//
-//             return true;
-//         }
+        public bool TryGetComponentRefRO<TInner>(Entity entity, out TInner* ptr) 
+            where TInner : unmanaged
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
+            CheckComponentIsZeroSized();
+
+            var ecs = m_Access->EntityComponentStore;
+
+            var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
+            if (hasComponent)
+            {
+                ptr = (TInner*)ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+            }
+            else
+            {
+                ptr = null;
+                return false;
+            }
+
+            return true;
+        }
         
         public bool TryGetComponentPtrRW(Entity entity, out T* ptr)
         {
@@ -352,6 +353,8 @@ namespace Unity.Entities.Exposed
             void* ptr = ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
             return ref UnsafeUtility.AsRef<T>(ptr);
         }
+        
+        
 
         internal byte* GetComponentDataWithTypeRO(Chunk* chunk, Archetype* archetype, int indexInChunk, int typeIndex)
         {
