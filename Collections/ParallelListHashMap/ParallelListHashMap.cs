@@ -92,7 +92,7 @@ namespace NZNativeContainers
             DisposeSentinel.Dispose(ref m_Safety, ref m_DisposeSentinel);
 #endif
             
-            _unsafeParallelListHashMap->Dispose();
+            UnsafeParallelListHashMap<TKey,TValue>.Destroy(_unsafeParallelListHashMap);
         }
         
         public UnsafeParallelListHashMapEnumerator<TKey, TValue> GetValuesForKey(TKey key)

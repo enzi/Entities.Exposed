@@ -81,8 +81,7 @@ namespace NZNativeContainers
 
             DisposeSentinel.Dispose(ref m_Safety, ref m_DisposeSentinel);
 #endif
-            
-            _unsafeParallelList->Dispose();
+            UnsafeParallelList<T>.Destroy(_unsafeParallelList);
         }
         
         public Reader AsReader()

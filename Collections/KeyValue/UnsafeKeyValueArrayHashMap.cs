@@ -161,6 +161,14 @@ namespace NZNativeContainers
 
             return true;
         }
+        
+        public static void Destroy(UnsafeKeyValueArrayHashMap<TKey, TValue>* hashMap)
+        {
+            //CheckNull(listData);
+            var allocator = hashMap->m_Allocator;
+            hashMap->Dispose();
+            AllocatorManager.Free(allocator, hashMap);
+        }
 
         public void Dispose()
         {

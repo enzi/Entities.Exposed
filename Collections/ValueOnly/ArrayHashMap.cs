@@ -88,7 +88,7 @@ namespace NZNativeContainers
             DisposeSentinel.Dispose(ref m_Safety, ref m_DisposeSentinel);
 #endif
             
-            _unsafeArrayHashMap->Dispose();
+            UnsafeArrayHashMap<TKey,TValue>.Destroy(_unsafeArrayHashMap);
         }
         
         public ArrayHashMapEnumerator<TKey, TValue> GetValuesForKey(TKey key)

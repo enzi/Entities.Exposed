@@ -12,6 +12,7 @@ namespace NZNativeContainers
     public unsafe struct UnsafeParallelList<T> : INativeDisposable
         where T : unmanaged
     {
+        [NativeDisableUnsafePtrRestriction] private UnsafeParallelList<T>* self;
         [NativeDisableUnsafePtrRestriction] private UnsafeParallelListHeader* header;
         [NativeDisableUnsafePtrRestriction] private PerThreadList* m_perThreadLists;
         [NativeDisableUnsafePtrRestriction] private UnsafeParallelListRange* Ranges;
@@ -28,6 +29,7 @@ namespace NZNativeContainers
         {
             UnsafeParallelList<T>* unsafeParallelList = allocator.Allocate(default(UnsafeParallelList<T>), 1);
 
+            unsafeParallelList->self = unsafeParallelList;
             unsafeParallelList->m_Allocator = allocator.Handle;
             
             int size = UnsafeUtility.SizeOf<PerThreadList>();
@@ -132,6 +134,14 @@ namespace NZNativeContainers
         {
             return new Writer(ref this);
         }
+        
+        public static void Destroy(UnsafeParallelList<T>* unsafeParallelList)
+        {
+            //CheckNull(listData);
+            var allocator = unsafeParallelList->m_Allocator;
+            unsafeParallelList->Dispose();
+            AllocatorManager.Free(allocator, unsafeParallelList);
+        }
 
         public void Dispose()
         {
@@ -150,6 +160,9 @@ namespace NZNativeContainers
             DeallocateRanges();
             Memory.Unmanaged.Free(header, m_Allocator);
             header = null;
+
+            //UnsafeUtility.Free(self, m_Allocator.ToAllocator);
+            
             m_Allocator = Allocator.None;
         }
 
