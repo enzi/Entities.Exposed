@@ -1,6 +1,12 @@
 # Entities.Exposed
 Helpful extensions for Entities and NativeContainers
 
+Note about Entities 1.0:
+Entities 1.0 has changed CDFE to ComponentLookup and added methods to to get RefRO/RW structs of an IComponentData.
+This makes UnsafeCDFE not as important as it once was. However, there's still a bit of value found because you
+can directly get a ref value and not the struct wrapper and getting the pointers is easier, without relying on calling
+UnsafeUtility.AddressOf on a RefRW/RO. 
+
 Unity.Entities.Exposed namespace:
 
 The main purpose is to get pointers and references from ComponentDataFromEntity
