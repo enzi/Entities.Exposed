@@ -1,17 +1,18 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
-using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 namespace NZNativeContainers
 {
     [NativeContainer]
     [StructLayout(LayoutKind.Sequential)]
-    [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
+    [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
     public unsafe struct ParallelList<T> : IDisposable
         where T : unmanaged
     {
@@ -20,39 +21,47 @@ namespace NZNativeContainers
         
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal AtomicSafetyHandle m_Safety;
-        [NativeSetClassTypeToNullOnSchedule] internal DisposeSentinel m_DisposeSentinel;
+        internal int m_SafetyIndexHint;
+        internal static readonly SharedStatic<int> s_staticSafetyId = SharedStatic<int>.GetOrCreate<ParallelList<T>>();
 #endif
         
         public int Length => _unsafeParallelList->Count();
         
         public ParallelList(AllocatorManager.AllocatorHandle allocator)
-            : this(1, allocator, 2)
-        {
-        }
-        
-        public ParallelList(int initialCapacity, AllocatorManager.AllocatorHandle allocator)
-            : this(initialCapacity, allocator, 2)
+            : this(1, allocator)
         {
         }
 
-        private ParallelList(int initialCapacity, AllocatorManager.AllocatorHandle allocator, int disposeSentinelStackDepth)
+        public ParallelList(int initialCapacity, AllocatorManager.AllocatorHandle allocator)
         {
             this = default;
             AllocatorManager.AllocatorHandle temp = allocator;
-            Initialize(initialCapacity, ref temp, disposeSentinelStackDepth);
+            Initialize(initialCapacity, ref temp);
         }
         
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(AllocatorManager.AllocatorHandle) })]
-        private void Initialize<U>(int initialCapacity, ref U allocator, int disposeSentinelStackDepth) where U : unmanaged, AllocatorManager.IAllocator
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(AllocatorManager.AllocatorHandle) })]
+        private void Initialize<U>(int initialCapacity, ref U allocator) where U : unmanaged, AllocatorManager.IAllocator
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Create(out m_Safety, out m_DisposeSentinel, disposeSentinelStackDepth, allocator.ToAllocator);
+            var totalSize = sizeof(T) * (long)initialCapacity;
+            CollectionHelper.CheckAllocator(allocator.Handle);
+            CheckInitialCapacity(initialCapacity);
+            CheckTotalSize(initialCapacity, totalSize);
+
+            m_Safety = CollectionHelper.CreateSafetyHandle(allocator.Handle);
+            CollectionHelper.InitNativeContainer<T>(m_Safety);
+
+            CollectionHelper.SetStaticSafetyId<ParallelList<T>>(ref m_Safety, ref s_staticSafetyId.Data);
+
+            m_SafetyIndexHint = (allocator.Handle).AddSafetyHandle(m_Safety);
+
+            AtomicSafetyHandle.SetBumpSecondaryVersionOnScheduleWrite(m_Safety, true);
 #endif
             
             _unsafeParallelList = UnsafeParallelList<T>.Create(initialCapacity, ref allocator);
             
         }
-        
+
         public int GetChunkCount()
         {
             return _unsafeParallelList->GetChunkCount();
@@ -72,16 +81,31 @@ namespace NZNativeContainers
         {
             _unsafeParallelList->Clear();
         }
+        
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void CheckInitialCapacity(int initialCapacity)
+        {
+            if (initialCapacity < 0)
+                throw new ArgumentOutOfRangeException(nameof(initialCapacity), "Capacity must be >= 0");
+        }
+        
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void CheckTotalSize(int initialCapacity, long totalSize)
+        {
+            // Make sure we cannot allocate more than int.MaxValue (2,147,483,647 bytes)
+            // because the underlying UnsafeUtility.Malloc is expecting a int.
+            // TODO: change UnsafeUtility.Malloc to accept a UIntPtr length instead to match C++ API
+            if (totalSize > int.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(initialCapacity), $"Capacity * sizeof(T) cannot exceed {int.MaxValue} bytes");
+        }
 
         public void Dispose()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!UnsafeUtility.IsValidAllocator(_unsafeParallelList->m_Allocator.ToAllocator))
-                throw new InvalidOperationException("The NativeArray can not be Disposed because it was not allocated with a valid allocator.");
-
-            DisposeSentinel.Dispose(ref m_Safety, ref m_DisposeSentinel);
+            CollectionHelper.DisposeSafetyHandle(ref m_Safety);
 #endif
             UnsafeParallelList<T>.Destroy(_unsafeParallelList);
+            _unsafeParallelList = null;
         }
         
         public Reader AsReader()
@@ -95,7 +119,7 @@ namespace NZNativeContainers
         }
 
         [NativeContainer]
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         [NativeContainerIsAtomicWriteOnly]
         public unsafe struct Writer
         {
@@ -147,7 +171,7 @@ namespace NZNativeContainers
 
         [NativeContainer]
         [NativeContainerIsReadOnly]
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         public unsafe struct Reader
         {
             private UnsafeParallelList<T>.Reader m_Reader;
@@ -237,6 +261,9 @@ namespace NZNativeContainers
         
             public void Execute()
             {
+                if (array.Capacity < array.Length + parallelList.Length)
+                    array.Capacity = array.Length + parallelList.Length;
+                
                 for (int i = 0; i < JobsUtility.MaxJobThreadCount; i++)
                 {
                     ref var threadList = ref parallelList.GetUnsafeList(i);

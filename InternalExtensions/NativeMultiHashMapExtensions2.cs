@@ -15,41 +15,6 @@ namespace NZNativeContainers.Extensions
     /// <summary> Extensions for <see cref="NativeMultiHashMap{TKey,TValue}"/>. </summary>
     public static class NativeMultiHashMapExtensions2
     {
-        public static unsafe void GetKeyAndValueLists<TKey, TValue>(this NativeMultiHashMap<TKey, TValue> hashMap, out NativeList<TKey> keysList, out NativeList<TValue> valuesList)
-            where TKey : unmanaged, IEquatable<TKey>
-            where TValue : unmanaged
-        {
-            //Profiler.BeginSample("get values");
-            var keys = hashMap.m_MultiHashMapData.m_Buffer->keys;
-            var values = hashMap.m_MultiHashMapData.m_Buffer->values;
-            //Profiler.EndSample();
-
-            //Profiler.BeginSample("keysList");
-            keysList = default(NativeList<TKey>);
-            keysList.m_ListData = hashMap.m_MultiHashMapData.m_AllocatorLabel.Allocate(default(UnsafeList<TKey>), 0); //UnsafeList<TKey>.Create(0, ref hashMap.m_MultiHashMapData.m_AllocatorLabel);
-            keysList.m_ListData->Ptr = (TKey*)keys;
-            keysList.m_ListData->m_length = 0;
-            keysList.m_ListData->m_capacity = hashMap.Capacity;
-            //Profiler.EndSample();
-
-            valuesList = default(NativeList<TValue>);
-            valuesList.m_ListData = hashMap.m_MultiHashMapData.m_AllocatorLabel.Allocate(default(UnsafeList<TValue>), 0);//UnsafeList<TValue>.Create(0, ref hashMap.m_MultiHashMapData.m_AllocatorLabel);
-            valuesList.m_ListData->Ptr = (TValue*)values;
-            valuesList.m_ListData->m_length = 0;
-            valuesList.m_ListData->m_capacity = hashMap.Capacity;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            //keysList.m_Safety = hashMap.m_Safety;
-            //valuesList.m_Safety = hashMap.m_Safety;
-            //Profiler.BeginSample("ENABLE_UNITY_COLLECTIONS_CHECKS");
-            DisposeSentinel.Create(out keysList.m_Safety, out keysList.m_DisposeSentinel, 2, hashMap.m_MultiHashMapData.m_AllocatorLabel.ToAllocator);
-            DisposeSentinel.Create(out valuesList.m_Safety, out valuesList.m_DisposeSentinel, 2, hashMap.m_MultiHashMapData.m_AllocatorLabel.ToAllocator);
-            keysList.m_DeprecatedAllocator = hashMap.m_MultiHashMapData.m_AllocatorLabel;
-            valuesList.m_DeprecatedAllocator = hashMap.m_MultiHashMapData.m_AllocatorLabel;
-            //Profiler.EndSample();
-#endif
-        }
-
         public static unsafe void CalculateBuckets<TKey, TValue>(this NativeMultiHashMap<TKey, TValue> hashMap, NativeArray<TKey> keys)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
@@ -81,7 +46,7 @@ namespace NZNativeContainers.Extensions
             return new RefEnumerator<TKey, TValue> { hashmap = hashmap, key = key, isFirst = true };
         }
 
-        public static unsafe bool ContainsKeyFast<TKey, TValue>(
+        public static bool ContainsKeyFast<TKey, TValue>(
             this NativeMultiHashMap<TKey, TValue> hashmap,
             TKey key)
             where TKey : unmanaged, IEquatable<TKey>
@@ -146,8 +111,8 @@ namespace NZNativeContainers.Extensions
             public TKey key;
             public bool isFirst;
 
-            byte* value;
-            NativeMultiHashMapIterator<TKey> iterator;
+            private byte* value;
+            private NativeMultiHashMapIterator<TKey> iterator;
 
             /// <summary>
             /// Does nothing.
@@ -227,7 +192,8 @@ namespace NZNativeContainers.Extensions
             }
 
             int* nextPtrs = (int*)data->next;
-            while (!(*(TKey*) (data->keys + entryIdx * sizeof(TKey))).Equals(it.key))
+            //while (!(*(TKey*) (data->keys + entryIdx * sizeof(TKey))).Equals(it.key))
+            while (!UnsafeUtility.ReadArrayElement<TKey>(data->keys, entryIdx).Equals(it.key))
             {
                 entryIdx = nextPtrs[entryIdx];
                 if (entryIdx < 0 || entryIdx >= data->keyCapacity)

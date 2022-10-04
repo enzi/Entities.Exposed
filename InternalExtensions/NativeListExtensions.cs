@@ -13,7 +13,7 @@ namespace NZNativeContainers.Extensions
         [NativeDisableUnsafePtrRestriction] public UnsafeList<T>* list;
         [NativeDisableUnsafePtrRestriction] public T* currentPtr;
 
-        public void Add(ref T item)
+        public void Add(in T item)
         {
             if (currentPtr == null || currentIndex >= increaseCount)
             {
@@ -23,7 +23,7 @@ namespace NZNativeContainers.Extensions
                 }                
                 else
                 {
-                    Debug.LogError("Adding item failed! Could not reserve more memory. Capacity exceeded!");
+                    Debug.LogError($"Adding item failed! Could not reserve more memory. Capacity exceeded! index {currentIndex} length {list->m_length} capacity {list->m_capacity} increaseCount {increaseCount}");
                     return;
                 }
             }
@@ -35,21 +35,32 @@ namespace NZNativeContainers.Extensions
             currentIndex++;
         }
 
+        public void AddRange(ref UnsafeList<T> listToAdd)
+        {
+            //list->AddRangeNoResize(listToAdd);
+            int count = listToAdd.m_length;
+
+            var sizeOf = sizeof(T);
+            void* dst = (byte*)list->Ptr + list->m_length * sizeOf;
+            UnsafeUtility.MemCpy(dst, listToAdd.Ptr, count * sizeOf);
+            list->m_length += count;
+        }
+
         public void FillEmpty()
         {
             if (currentPtr == null)
                 return;
+            
+            //UnsafeUtility.MemSet(currentPtr + currentIndex * sizeof(T), 0, (increaseCount - currentIndex) * sizeof(T));
 
             while (currentIndex < increaseCount)
             {
-                //UnsafeUtility.WriteArrayElement(currentPtr, currentIndex, default(T));
                 *(T*)((byte*)currentPtr + currentIndex * sizeof(T)) = default(T);
                 currentIndex++;
             }
         }
 
-        public static bool ReserveNoResize<T>(UnsafeList<T>* list, int length, out T* ptr, out int idx)
-            where T : unmanaged
+        public static bool ReserveNoResize(UnsafeList<T>* list, int length, out T* ptr, out int idx)
         {
             if (list->m_length + length > list->m_capacity)
             {
@@ -65,7 +76,7 @@ namespace NZNativeContainers.Extensions
         }
     }
 
-    public unsafe static class NativeListExtensions
+    public static unsafe class NativeListExtensions
     {
         public static NativeListExtended<T> GetExtendedList<T>(this ref NativeList<T>.ParallelWriter nativeList, int increaseCount = 10) where T : unmanaged
         {

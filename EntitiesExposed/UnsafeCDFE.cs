@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -37,38 +38,72 @@ namespace Unity.Entities.Exposed
     public unsafe struct UnsafeCDFE<T> where T : unmanaged, IComponentData
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        readonly AtomicSafetyHandle      m_Safety;
+        internal AtomicSafetyHandle      m_Safety;
+        readonly byte                    m_IsReadOnly;
 #endif
         [NativeDisableUnsafePtrRestriction]
         readonly EntityDataAccess*       m_Access;
         readonly int                     m_TypeIndex;
-        readonly uint                    m_GlobalSystemVersion;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        readonly bool                    m_IsZeroSized;          // cache of whether T is zero-sized
-#endif
+        uint                    m_GlobalSystemVersion;
+        readonly byte                    m_IsZeroSized;          // cache of whether T is zero-sized
         LookupCache                      m_Cache;
+        
+        internal uint GlobalSystemVersion => m_GlobalSystemVersion;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal UnsafeCDFE(int typeIndex, EntityDataAccess* access, AtomicSafetyHandle safety)
+        internal UnsafeCDFE(int typeIndex, EntityDataAccess* access, bool isReadOnly)
         {
-            m_Safety = safety;
+            var safetyHandles = &access->DependencyManager->Safety;
+            m_Safety = safetyHandles->GetSafetyHandleForComponentLookup(typeIndex, isReadOnly);
+            m_IsReadOnly = isReadOnly ? (byte)1 : (byte)0;
             m_TypeIndex = typeIndex;
             m_Access = access;
             m_Cache = default;
             m_GlobalSystemVersion = access->EntityComponentStore->GlobalSystemVersion;
-            m_IsZeroSized = ComponentType.FromTypeIndex(typeIndex).IsZeroSized;
+            m_IsZeroSized = ComponentType.FromTypeIndex(typeIndex).IsZeroSized ? (byte)1 : (byte)0;
         }
 
 #else
-        internal ComponentDataFromEntityExposed(int typeIndex, EntityDataAccess* access)
+        internal UnsafeCDFE(int typeIndex, EntityDataAccess* access)
         {
             m_TypeIndex = typeIndex;
             m_Access = access;
             m_Cache = default;
             m_GlobalSystemVersion = access->EntityComponentStore->GlobalSystemVersion;
+            m_IsZeroSized = ComponentType.FromTypeIndex(typeIndex).IsZeroSized ? (byte)1 : (byte)0;
         }
 
 #endif
+        
+        /// <summary>
+        /// When a ComponentLookup is cached by a system across multiple system updates, calling this function
+        /// inside the system's OnUpdate() method performs the minimal incremental updates necessary to make the
+        /// type handle safe to use.
+        /// </summary>
+        /// <param name="system">The system on which this type handle is cached.</param>
+        public void Update(SystemBase system)
+        {
+            Update(ref *system.m_StatePtr);
+        }
+        
+        /// <summary>
+        /// When a ComponentLookup is cached by a system across multiple system updates, calling this function
+        /// inside the system's OnUpdate() method performs the minimal incremental updates necessary to make the
+        /// type handle safe to use.
+        /// </summary>
+        /// <param name="systemState">The SystemState of the system on which this type handle is cached.</param>
+        public void Update(ref SystemState systemState)
+        {
+            // NOTE: We could in theory fetch all this data from m_Access.EntityComponentStore and void the SystemState from being passed in.
+            //       That would unfortunately allow this API to be called from a job. So we use the required system parameter as a way of signifying to the user that this can only be invoked from main thread system code.
+            //       Additionally this makes the API symmetric to ComponentTypeHandle.
+            m_GlobalSystemVersion =  systemState.m_EntityComponentStore->GlobalSystemVersion;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var safetyHandles = &m_Access->DependencyManager->Safety;
+            m_Safety = safetyHandles->GetSafetyHandleForComponentLookup(m_TypeIndex, m_IsReadOnly != 0);
+#endif
+        }
 
         public bool Exists(Entity entity)
         {
@@ -103,7 +138,8 @@ namespace Unity.Entities.Exposed
 				var ecs = m_Access->EntityComponentStore;
                 ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 
-                CheckComponentIsZeroSized();
+                if (m_IsZeroSized != 0)
+                    return default;
 
                 void* ptr = ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
                 UnsafeUtility.CopyPtrToStructure(ptr, out T data);
@@ -118,7 +154,8 @@ namespace Unity.Entities.Exposed
 				var ecs = m_Access->EntityComponentStore;
                 ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 
-                CheckComponentIsZeroSized();
+                if (m_IsZeroSized != 0)
+                    return;
 
                 void* ptr = ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
                 UnsafeUtility.CopyStructureToPtr(ref value, ptr);
@@ -144,6 +181,26 @@ namespace Unity.Entities.Exposed
 			return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
             //return m_EntityComponentStore->HasComponent(entity, m_TypeIndex);
         }
+        
+        /// <summary>
+        /// Reports whether the specified <see cref="SystemHandle"/> associated <see cref="Entity"/> is valid and contains a
+        /// component of type T.
+        /// </summary>
+        /// <param name="system">The system handle.</param>
+        /// <returns>True if the entity associated with the system has a component of type T, and false if it does not. Also returns false if
+        /// the system handle refers to a system that has been destroyed.</returns>
+        /// <remarks>To report if the provided entity has a component of type T, this function confirms
+        /// whether the <see cref="EntityArchetype"/> of the provided entity includes components of type T.
+        /// </remarks>
+        public bool HasComponent(SystemHandle system)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
+            var ecs = m_Access->EntityComponentStore;
+            return ecs->HasComponent(system.m_Entity, m_TypeIndex, ref m_Cache);
+            //return ecs->HasComponent(system.m_Entity, m_TypeIndex);
+        }
 		
 		/// <summary>
         /// Retrieves the component associated with the specified <see cref="Entity"/>, if it exists. Then reports if the instance still refers to a valid entity and that it has a
@@ -160,22 +217,27 @@ namespace Unity.Entities.Exposed
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            CheckComponentIsZeroSized();
-
             var ecs = m_Access->EntityComponentStore;
-
-            var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
-            if (hasComponent)
+            
+            if (m_IsZeroSized != 0)
             {
-                void* ptr = ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
-                UnsafeUtility.CopyPtrToStructure(ptr, out componentData);
+                componentData = default;
+                return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
             }
-            else
+            
+            if (Hint.Unlikely(!ecs->Exists(entity)))
             {
                 componentData = default;
                 return false;
             }
 
+            void* ptr = ecs->GetOptionalComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+            if (ptr == null)
+            {
+                componentData = default;
+                return false;
+            }
+            UnsafeUtility.CopyPtrToStructure(ptr, out componentData);
             return true;
         }
         
@@ -184,22 +246,40 @@ namespace Unity.Entities.Exposed
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            CheckComponentIsZeroSized();
-
+            // CheckComponentIsZeroSized();
+            //
+            // var ecs = m_Access->EntityComponentStore;
+            //
+            // var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
+            // if (hasComponent)
+            // {
+            //     ptr = (T*) ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);                
+            // }
+            // else
+            // {
+            //     ptr = null;
+            //     return false;
+            // }
+            //
+            // return true;
+            
             var ecs = m_Access->EntityComponentStore;
-
-            var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
-            if (hasComponent)
+            
+            if (m_IsZeroSized != 0)
             {
-                ptr = (T*) ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);                
+                ptr = null;
+                return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
             }
-            else
+            
+            if (Hint.Unlikely(!ecs->Exists(entity)))
             {
                 ptr = null;
                 return false;
             }
 
-            return true;
+            ptr = (T*) ecs->GetOptionalComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+            
+            return ptr != null;
         }
 
         public void SetChangeVersion(Entity entity)
@@ -207,13 +287,13 @@ namespace Unity.Entities.Exposed
             var ecs = m_Access->EntityComponentStore;
             var chunk = ecs->GetChunk(entity);
 
-            if (m_Cache.IndexInArcheType == -1)
+            if (m_Cache.IndexInArchetype == -1)
             {
                 int IndexInArcheType = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, m_TypeIndex);
                 chunk->SetChangeVersion(IndexInArcheType, m_GlobalSystemVersion);
             }
             else
-                chunk->SetChangeVersion(m_Cache.IndexInArcheType, m_GlobalSystemVersion);
+                chunk->SetChangeVersion(m_Cache.IndexInArchetype, m_GlobalSystemVersion);
         }
 		
         public bool TryGetComponentRefRO<TInner>(Entity entity, out TInner* ptr) 
@@ -222,9 +302,13 @@ namespace Unity.Entities.Exposed
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            CheckComponentIsZeroSized();
-
             var ecs = m_Access->EntityComponentStore;
+            
+            if (m_IsZeroSized != 0)
+            {
+                ptr = null;
+                return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
+            }
 
             var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
             if (hasComponent)
@@ -245,9 +329,14 @@ namespace Unity.Entities.Exposed
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            CheckComponentIsZeroSized();
 
             var ecs = m_Access->EntityComponentStore;
+            
+            if (m_IsZeroSized != 0)
+            {
+                ptr = null;
+                return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
+            }
 
             var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
             if (hasComponent)
@@ -289,14 +378,14 @@ namespace Unity.Entities.Exposed
             return ChangeVersionUtility.DidChange(chunkVersion, version);
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        private void CheckComponentIsZeroSized()
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (m_IsZeroSized)
-                throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not index the component because it is zero sized, you can use Exists instead.");
-#endif
-        }
+//         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+//         private void CheckComponentIsZeroSized()
+//         {
+// #if ENABLE_UNITY_COLLECTIONS_CHECKS
+//             if (m_IsZeroSized)
+//                 throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not index the component because it is zero sized, you can use Exists instead.");
+// #endif
+//         }
 
         public void* GetPtr(Entity entity)
         {
@@ -306,7 +395,8 @@ namespace Unity.Entities.Exposed
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 
-            CheckComponentIsZeroSized();
+            if (m_IsZeroSized != 0)
+                return null;
 
             void* ptr = ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
             return ptr;
@@ -320,7 +410,8 @@ namespace Unity.Entities.Exposed
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 
-            CheckComponentIsZeroSized();
+            if (m_IsZeroSized != 0)
+                return null;
 
             void* ptr = ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
             return ptr;
@@ -334,7 +425,10 @@ namespace Unity.Entities.Exposed
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 
-            CheckComponentIsZeroSized();
+            if (m_IsZeroSized != 0)
+            {
+                throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not index the component because it is zero sized, you can use Exists instead.");
+            }
 
             void* ptr = ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
             return ref UnsafeUtility.AsRef<T>(ptr);
@@ -348,13 +442,14 @@ namespace Unity.Entities.Exposed
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 
-            CheckComponentIsZeroSized();
+            if (m_IsZeroSized != 0)
+            {
+                throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not index the component because it is zero sized, you can use Exists instead.");
+            }
 
             void* ptr = ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
             return ref UnsafeUtility.AsRef<T>(ptr);
         }
-        
-        
 
         internal byte* GetComponentDataWithTypeRO(Chunk* chunk, Archetype* archetype, int indexInChunk, int typeIndex)
         {
@@ -363,9 +458,9 @@ namespace Unity.Entities.Exposed
             if (m_Cache.Archetype != archetype)
             {
                 m_Cache.Archetype = archetype;
-                ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex, ref m_Cache.IndexInArcheType);
-                m_Cache.ComponentOffset = archetype->Offsets[m_Cache.IndexInArcheType];
-                m_Cache.ComponentSizeOf = archetype->SizeOfs[m_Cache.IndexInArcheType];
+                ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex, ref m_Cache.IndexInArchetype);
+                m_Cache.ComponentOffset = archetype->Offsets[m_Cache.IndexInArchetype];
+                m_Cache.ComponentSizeOf = archetype->SizeOfs[m_Cache.IndexInArchetype];
             }
 
             return chunk->Buffer + (m_Cache.ComponentOffset + m_Cache.ComponentSizeOf * indexInChunk);
@@ -377,13 +472,13 @@ namespace Unity.Entities.Exposed
             if (m_Cache.Archetype != archetype)
             {
                 m_Cache.Archetype = archetype;
-                ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex, ref m_Cache.IndexInArcheType);
-                m_Cache.ComponentOffset = archetype->Offsets[m_Cache.IndexInArcheType];
-                m_Cache.ComponentSizeOf = archetype->SizeOfs[m_Cache.IndexInArcheType];
+                ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex, ref m_Cache.IndexInArchetype);
+                m_Cache.ComponentOffset = archetype->Offsets[m_Cache.IndexInArchetype];
+                m_Cache.ComponentSizeOf = archetype->SizeOfs[m_Cache.IndexInArchetype];
             }
 
             // Write Component to Chunk. ChangeVersion:Yes OrderVersion:No
-            chunk->SetChangeVersion(m_Cache.IndexInArcheType, globalVersion);
+            chunk->SetChangeVersion(m_Cache.IndexInArchetype, globalVersion);
             return chunk->Buffer + (m_Cache.ComponentOffset + m_Cache.ComponentSizeOf * indexInChunk);
         }
         
@@ -414,7 +509,8 @@ namespace Unity.Entities.Exposed
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 
-            CheckComponentIsZeroSized();
+            if (m_IsZeroSized != 0)
+                return default;
 
             void* ptr = GetComponentDataWithTypeRO(si.Chunk.m_Chunk, si.Chunk.Archetype.Archetype, si.IndexInChunk, m_TypeIndex);
             UnsafeUtility.CopyPtrToStructure(ptr, out T data);
@@ -427,9 +523,14 @@ namespace Unity.Entities.Exposed
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            CheckComponentIsZeroSized();
 
             var ecs = m_Access->EntityComponentStore;
+            
+            if (m_IsZeroSized != 0)
+            {
+                componentData = default;
+                return false;
+            }
 
             var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
             if (hasComponent)
@@ -451,9 +552,13 @@ namespace Unity.Entities.Exposed
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            CheckComponentIsZeroSized();
-
             var ecs = m_Access->EntityComponentStore;
+
+            if (m_IsZeroSized != 0)
+            {
+                ptr = null;
+                return false;
+            }
 
             var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
             if (hasComponent)

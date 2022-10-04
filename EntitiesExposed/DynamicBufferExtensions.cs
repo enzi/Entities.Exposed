@@ -8,20 +8,20 @@ namespace Unity.Entities.Exposed
     public static unsafe class DynamicBufferExtensions
     {
         public static int GetInternalCapacity<T>(this BufferTypeHandle<T> bufferHandle)
-            where T : struct, IBufferElementData
+            where T : unmanaged, IBufferElementData
         {
             return TypeManager.GetTypeInfo(bufferHandle.m_TypeIndex).BufferCapacity;
         }
         
-        public static int GetInternalCapacity<T>(this BufferFromEntity<T> bufferLookup)
-            where T : struct, IBufferElementData
+        public static int GetInternalCapacity<T>(this BufferLookup<T> bufferLookup)
+            where T : unmanaged, IBufferElementData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             return TypeManager.GetTypeInfo(typeIndex).BufferCapacity;
         }
         
         public static int RemoveAtSwapBackReportIndex<T>(this DynamicBuffer<T> buffer, int index)
-            where T : struct
+            where T : unmanaged
         {
             buffer.Length -= 1;
             // ref var l = ref buffer.Length;
@@ -64,7 +64,7 @@ namespace Unity.Entities.Exposed
             where T : unmanaged
         {
             //var tmp = (DynamicBufferExposed<T>*)UnsafeUtility.AddressOf(ref buffer);
-            var tmp = UnsafeUtility.As<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref buffer);
+            ref var tmp = ref UnsafeUtility.As<DynamicBuffer<T>, DynamicBufferExposed<T>>(ref buffer);
             return (BufferHeaderExposed*) tmp.m_Buffer;
         }
         
@@ -87,8 +87,32 @@ namespace Unity.Entities.Exposed
 
             return (byte*)(header + 1);
         }
+
+        public static void RemoveAt<T>(BufferHeaderExposed* bufferHeader, int index)
+            where T : unmanaged
+        {
+            RemoveRange<T>(bufferHeader, index, 1);
+        }
+
+        public static void RemoveRange<T>(BufferHeaderExposed* bufferHeader, int index, int count)
+            where T : unmanaged
+        {
+            //CheckWriteAccess();
+            //CheckBounds(index);
+            if (count == 0)
+                return;
+            //CheckBounds(index + count - 1);
+
+            int elemSize = UnsafeUtility.SizeOf<T>();
+            byte* basePtr = GetElementPointer(bufferHeader);
+
+            UnsafeUtility.MemMove(basePtr + index * elemSize, basePtr + (index + count) * elemSize, (long)elemSize * (bufferHeader->Length - count - index));
+
+            bufferHeader->Length -= count;
+        }
         
         public static void RemoveAtSwapBack<T>(BufferHeaderExposed* bufferHeader, int index)
+            where T : struct
         {
             ref var l = ref bufferHeader->Length;
             l -= 1;

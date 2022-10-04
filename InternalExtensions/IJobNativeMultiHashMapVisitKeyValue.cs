@@ -1,4 +1,4 @@
-﻿namespace NZNativeContainers.Extensions
+﻿namespace NZJobs.Extensions
 {
     using System;
     using System.Diagnostics.CodeAnalysis;
@@ -40,8 +40,8 @@
             int minIndicesPerJobCount,
             JobHandle dependsOn = default)
             where TJob : struct, IJobNativeMultiHashMapVisitKeyValue<TKey, TValue>
-            where TKey : struct, IEquatable<TKey>
-            where TValue : struct
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
         {
             var jobProducer = new JobNativeMultiHashMapVisitKeyValueProducer<TJob, TKey, TValue>
             {
@@ -64,8 +64,8 @@
         /// <typeparam name="TValue"> The type of the value in the hash map. </typeparam>
         internal struct JobNativeMultiHashMapVisitKeyValueProducer<TJob, TKey, TValue>
             where TJob : struct, IJobNativeMultiHashMapVisitKeyValue<TKey, TValue>
-            where TKey : struct, IEquatable<TKey>
-            where TValue : struct
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
         {
             /// <summary> The <see cref="NativeMultiHashMap{TKey,TValue}" />. </summary>
             [ReadOnly]

@@ -10,7 +10,7 @@ namespace Unity.Entities.Exposed
         /// </summary>
         /// <param name="world"></param>
         /// <returns></returns>
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("")]
         public static Type ExecutingSystemType(this World world)
         {
             return world.Unmanaged.GetTypeOfSystem(world.Unmanaged.ExecutingSystem);

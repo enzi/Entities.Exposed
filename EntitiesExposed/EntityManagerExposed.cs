@@ -28,7 +28,7 @@ namespace Unity.Entities.Exposed
 
     public static unsafe class EntityManagerExposed
     {
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         public static EntityLocationInChunk GetEntityLocationInChunk(this EntityManager entityManager, Entity entity)
         {
             var ecs           = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
@@ -40,7 +40,7 @@ namespace Unity.Entities.Exposed
             };
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         public static int GetIndexInChunk(this EntityManager entityManager, Entity entity)
         {
             var ecs           = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
@@ -48,13 +48,13 @@ namespace Unity.Entities.Exposed
             return entityInChunk.IndexInChunk;
         }
         
-        public static ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(this EntityManager entityManager, bool isReadOnly = false)
-            where T : struct, IComponentData
+        public static ComponentLookup<T> GetComponentDataFromEntity<T>(this EntityManager entityManager, bool isReadOnly = false)
+            where T : unmanaged, IComponentData
         {
             return entityManager.GetComponentDataFromEntity<T>(isReadOnly);
         }
         
-        public static StorageInfoFromEntity GetStorageInfoFromEntity(this EntityManager entityManager)
+        public static EntityStorageInfoLookup GetStorageInfoFromEntity(this EntityManager entityManager)
         {
             return entityManager.GetStorageInfoFromEntity();
         }
@@ -64,8 +64,8 @@ namespace Unity.Entities.Exposed
             return new StorageInfoExposed(systemBase.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore);
         }
         
-        [BurstCompatible]
-        public static ComponentDataFromEntityExposed<T> GetComponentDataFromEntityExposed<T>(this ComponentSystemBase systemBase, bool isReadOnly) where T : unmanaged, IComponentData
+        [GenerateTestsForBurstCompatibility]
+        public static UnsafeCDFE<T> GetUnsafeCDFE<T>(this ComponentSystemBase systemBase, bool isReadOnly) where T : unmanaged, IComponentData
         {
             systemBase.CheckedState()->AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             var entityManager = systemBase.EntityManager;
@@ -78,15 +78,15 @@ namespace Unity.Entities.Exposed
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs,
-                safetyHandles->GetSafetyHandleForComponentDataFromEntity(typeIndex, isReadOnly));
+            return new UnsafeCDFE<T>(typeIndex, ecs, isReadOnly);
 #else
-            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs);
+            return new UnsafeCDFE<T>(typeIndex, ecs);
 #endif
         }
         
-        [BurstCompatible]
-        public static ComponentDataFromEntityExposed<T> GetComponentDataFromEntityExposed<T>(this SystemState systemState, bool isReadOnly) where T : unmanaged, IComponentData
+        [GenerateTestsForBurstCompatibility]
+        public static UnsafeCDFE<T> GetUnsafeCDFE<T>(this SystemState systemState, bool isReadOnly) 
+            where T : unmanaged, IComponentData
         {
             systemState.AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             var entityManager = systemState.EntityManager;
@@ -99,15 +99,15 @@ namespace Unity.Entities.Exposed
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs,
-                safetyHandles->GetSafetyHandleForComponentDataFromEntity(typeIndex, isReadOnly));
+            return new UnsafeCDFE<T>(typeIndex, ecs,isReadOnly);
 #else
-            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs);
+            return new UnsafeCDFE<T>(typeIndex, ecs);
 #endif
         }
-        
-        [BurstCompatible]
-        public static ComponentDataFromEntityExposed<T> GetComponentDataFromEntityExposed<T>(this EntityManager entityManager, bool isReadOnly) where T : unmanaged, IComponentData
+
+        [GenerateTestsForBurstCompatibility]
+        public static UnsafeCDFE<T> GetUnsafeCDFE<T>(this EntityManager entityManager, bool isReadOnly) 
+            where T : unmanaged, IComponentData
         {
             //systemState.AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             //var entityManager = systemState.EntityManager;
@@ -120,10 +120,9 @@ namespace Unity.Entities.Exposed
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs,
-                safetyHandles->GetSafetyHandleForComponentDataFromEntity(typeIndex, isReadOnly));
+            return new UnsafeCDFE<T>(typeIndex, ecs, isReadOnly);
 #else
-            return new ComponentDataFromEntityExposed<T>(typeIndex, ecs);
+            return new UnsafeCDFE<T>(typeIndex, ecs);
 #endif
         }
 
@@ -190,7 +189,7 @@ namespace Unity.Entities.Exposed
     public static unsafe class ChunkExtension
     {
         public static BufferAccessor<T> GetBufferAccessorFast<T>(this ArchetypeChunk chunk, ref BufferTypeHandleFast<T> bufferComponentTypeHandle)
-            where T : struct, IBufferElementData
+            where T : unmanaged, IBufferElementData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(bufferComponentTypeHandle.m_Safety0);
@@ -214,7 +213,7 @@ namespace Unity.Entities.Exposed
 //#endif
 //            }
 
-            int internalCapacity = archetype->BufferCapacities[bufferComponentTypeHandle.m_Cache.IndexInArcheType];
+            int internalCapacity = archetype->BufferCapacities[bufferComponentTypeHandle.m_Cache.IndexInArchetype];
 
             //byte* ptr = (bufferComponentTypeHandle.IsReadOnly)
             //    ? ChunkDataUtility.GetComponentDataRO(m_Chunk, 0, bufferComponentTypeHandle.m_TypeLookupCache)
@@ -222,7 +221,7 @@ namespace Unity.Entities.Exposed
             
 
             var length = chunk.Count;
-            int stride = archetype->SizeOfs[bufferComponentTypeHandle.m_Cache.IndexInArcheType];
+            int stride = archetype->SizeOfs[bufferComponentTypeHandle.m_Cache.IndexInArchetype];
             var batchStartOffset = chunk.m_BatchStartEntityIndex * stride;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -232,7 +231,7 @@ namespace Unity.Entities.Exposed
 #endif
         }
 
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         public static BufferTypeHandleFast<T> GetBufferTypeHandleFast<T>(this EntityManager entityManager, bool isReadOnly)
             where T : struct, IBufferElementData
         {

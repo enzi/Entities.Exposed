@@ -16,6 +16,21 @@ namespace NZNativeContainers.Extensions
     /// <summary> Extensions for <see cref="NativeMultiHashMap{TKey,TValue}"/>. </summary>
     public static class NativeMultiHashMapExtensions
     {
+
+        public static unsafe UnsafeParallelHashMap<TKey, TValue> GetUnsafeParallelHashMap<TKey, TValue>(this NativeParallelHashMap<TKey, TValue> hashMap)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            return hashMap.m_HashMapData;
+        }
+        
+        public static unsafe UnsafeParallelHashMap<TKey, TValue>* GetUnsafeParallelHashMapPtr<TKey, TValue>(this NativeParallelHashMap<TKey, TValue> hashMap)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            return (UnsafeParallelHashMap<TKey, TValue>*) UnsafeUtility.AddressOf(ref hashMap.m_HashMapData);
+        }
+        
         /// <summary>
         /// 
         /// </summary>
@@ -26,7 +41,7 @@ namespace NZNativeContainers.Extensions
         /// <param name="values"></param>
         /// <param name="length"></param>
 	    public static unsafe void AddBatchUnsafe<TKey, TValue>(
-            [NoAlias] this NativeHashMap<TKey, TValue>.ParallelWriter hashMap,
+            [NoAlias] this NativeParallelHashMap<TKey, TValue>.ParallelWriter hashMap,
             [NoAlias] TKey* keys,
             [NoAlias] TValue* values,
             int length)

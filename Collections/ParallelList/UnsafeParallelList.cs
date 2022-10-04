@@ -1,14 +1,13 @@
-﻿using Unity.Burst;
+﻿using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
-using Unity.Mathematics;
-using UnityEngine;
-using UnityEngine.SocialPlatforms;
 
 namespace NZNativeContainers
 {
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct UnsafeParallelList<T> : INativeDisposable
         where T : unmanaged
     {
@@ -23,7 +22,7 @@ namespace NZNativeContainers
         public int Length => Count();
         
         
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(AllocatorManager.AllocatorHandle) })]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(AllocatorManager.AllocatorHandle) })]
         internal static UnsafeParallelList<T>* Create<U>(int initialCapacity, ref U allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory)
             where U : unmanaged, AllocatorManager.IAllocator
         {

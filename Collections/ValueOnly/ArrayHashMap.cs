@@ -9,7 +9,7 @@ namespace NZNativeContainers
 {
     [NativeContainer]
     [StructLayout(LayoutKind.Sequential)]
-    [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
+    [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
     public unsafe struct ArrayHashMap<TKey, TValue> : IDisposable
         where TKey : unmanaged, IEquatable<TKey>
         where TValue : unmanaged
@@ -17,27 +17,28 @@ namespace NZNativeContainers
         [NativeDisableUnsafePtrRestriction] private UnsafeArrayHashMap<TKey, TValue>* _unsafeArrayHashMap;
         
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        private AtomicSafetyHandle m_Safety;
-        [NativeSetClassTypeToNullOnSchedule] private DisposeSentinel m_DisposeSentinel;
+        internal AtomicSafetyHandle m_Safety;
+        static readonly SharedStatic<int> s_staticSafetyId = SharedStatic<int>.GetOrCreate<ArrayHashMap<TKey, TValue>>();
 #endif
-        
-        public ArrayHashMap(int initialCapacity, int keyOffset,AllocatorManager.AllocatorHandle allocator)
-            : this(initialCapacity, keyOffset, allocator, 2)
-        {
-        }
 
-        public ArrayHashMap(int initialCapacity, int keyOffset, AllocatorManager.AllocatorHandle allocator, int disposeSentinelStackDepth)
+        public ArrayHashMap(int initialCapacity, int keyOffset, AllocatorManager.AllocatorHandle allocator)
         {
             this = default;
             AllocatorManager.AllocatorHandle temp = allocator;
-            Initialize(initialCapacity, keyOffset, ref temp, disposeSentinelStackDepth);
+            Initialize(initialCapacity, keyOffset, ref temp);
         }
 
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(AllocatorManager.AllocatorHandle) })]
-        private void Initialize<U>(int initialCapacity, int keyOffset, ref U allocator, int disposeSentinelStackDepth) where U : unmanaged, AllocatorManager.IAllocator
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(AllocatorManager.AllocatorHandle) })]
+        private void Initialize<U>(int initialCapacity, int keyOffset, ref U allocator) where U : unmanaged, AllocatorManager.IAllocator
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Create(out m_Safety, out m_DisposeSentinel, disposeSentinelStackDepth, allocator.ToAllocator);
+            m_Safety = CollectionHelper.CreateSafetyHandle(allocator.ToAllocator);
+
+            if (UnsafeUtility.IsNativeContainerType<TKey>() || UnsafeUtility.IsNativeContainerType<TValue>())
+                AtomicSafetyHandle.SetNestedContainer(m_Safety, true);
+
+            CollectionHelper.SetStaticSafetyId<ArrayHashMap<TKey, TValue>>(ref m_Safety, ref s_staticSafetyId.Data);
+            AtomicSafetyHandle.SetBumpSecondaryVersionOnScheduleWrite(m_Safety, true);
 #endif
             
             _unsafeArrayHashMap = UnsafeArrayHashMap<TKey, TValue>.Create(initialCapacity, keyOffset, ref allocator);
@@ -82,10 +83,7 @@ namespace NZNativeContainers
         public void Dispose()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!UnsafeUtility.IsValidAllocator(_unsafeArrayHashMap->m_Allocator.ToAllocator))
-                throw new InvalidOperationException("The NativeArray can not be Disposed because it was not allocated with a valid allocator.");
-
-            DisposeSentinel.Dispose(ref m_Safety, ref m_DisposeSentinel);
+            CollectionHelper.DisposeSafetyHandle(ref m_Safety);
 #endif
             
             UnsafeArrayHashMap<TKey,TValue>.Destroy(_unsafeArrayHashMap);

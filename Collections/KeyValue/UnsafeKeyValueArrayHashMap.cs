@@ -10,7 +10,7 @@ using UnityEngine;
 namespace NZNativeContainers
 {
     [StructLayout(LayoutKind.Sequential)]
-    [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
+    [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
     public unsafe struct UnsafeKeyValueArrayHashMap<TKey, TValue> : IDisposable
         where TKey : unmanaged, IEquatable<TKey> 
         where TValue : unmanaged
@@ -28,7 +28,7 @@ namespace NZNativeContainers
 
         internal AllocatorManager.AllocatorHandle m_Allocator;
 
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(AllocatorManager.AllocatorHandle) })]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(AllocatorManager.AllocatorHandle) })]
         internal static UnsafeKeyValueArrayHashMap<TKey, TValue>* Create<U>(int initialCapacity, int keyOffset, ref U allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory)
             where U : unmanaged, AllocatorManager.IAllocator
         {
