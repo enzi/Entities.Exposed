@@ -16,11 +16,11 @@ namespace NZNativeContainers.Extensions
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {
-            NativeMultiHashMapIterator<TKey> tempIt;
+            NativeParallelMultiHashMapIterator<TKey> tempIt;
             return TryGetFirstRefValueAtomic<TKey, TValue>(hashMap.m_HashMapData.m_Buffer, key, out valuePtr, out tempIt);
         }
         
-        internal static unsafe bool TryGetFirstRefValueAtomic<TKey, TValue>(UnsafeParallelHashMapData* data, TKey key, out void* valuePtr, out NativeMultiHashMapIterator<TKey> it)
+        internal static unsafe bool TryGetFirstRefValueAtomic<TKey, TValue>(UnsafeParallelHashMapData* data, TKey key, out void* valuePtr, out NativeParallelMultiHashMapIterator<TKey> it)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {
@@ -40,7 +40,7 @@ namespace NZNativeContainers.Extensions
             return TryGetNextRefValueAtomic<TKey, TValue>(data, out valuePtr, ref it);
         }
 
-        internal static unsafe bool TryGetNextRefValueAtomic<TKey, TValue>(UnsafeParallelHashMapData* data, out void* valuePtr, ref NativeMultiHashMapIterator<TKey> it)
+        internal static unsafe bool TryGetNextRefValueAtomic<TKey, TValue>(UnsafeParallelHashMapData* data, out void* valuePtr, ref NativeParallelMultiHashMapIterator<TKey> it)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {

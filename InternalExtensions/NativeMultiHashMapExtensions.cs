@@ -13,7 +13,7 @@ namespace NZNativeContainers.Extensions
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
 
-    /// <summary> Extensions for <see cref="NativeMultiHashMap{TKey,TValue}"/>. </summary>
+    /// <summary> Extensions for <see cref="NativeParallelMultiHashMap{TKey,TValue}"/>. </summary>
     public static class NativeMultiHashMapExtensions
     {
 
@@ -82,7 +82,7 @@ namespace NZNativeContainers.Extensions
         /// <typeparam name="TKey"> The key type. </typeparam>
         /// <typeparam name="TValue"> The value type. </typeparam>
         public static unsafe void ClearAndAddBatch<TKey, TValue>(
-            [NoAlias] this NativeMultiHashMap<TKey, TValue> hashMap,
+            [NoAlias] this NativeParallelMultiHashMap<TKey, TValue> hashMap,
             [NoAlias] NativeArray<TKey> keys,
             [NoAlias] NativeArray<TValue> values)
             where TKey : unmanaged, IEquatable<TKey>
@@ -132,7 +132,7 @@ namespace NZNativeContainers.Extensions
         /// <typeparam name="TKey"> The key type. </typeparam>
         /// <typeparam name="TValue"> The value type. </typeparam>
         public static unsafe void AddBatch<TKey, TValue>(
-            [NoAlias] this NativeMultiHashMap<TKey, TValue> hashMap,
+            [NoAlias] this NativeParallelMultiHashMap<TKey, TValue> hashMap,
             [NoAlias] NativeArray<TKey> keys,
             [NoAlias] NativeArray<TValue> values)
             where TKey : unmanaged, IEquatable<TKey>
@@ -184,7 +184,7 @@ namespace NZNativeContainers.Extensions
         /// <typeparam name="TKey"> The key type. </typeparam>
         /// <typeparam name="TValue"> The value type. </typeparam>
         public static unsafe void AddBatch<TKey, TValue>(
-            [NoAlias] this NativeMultiHashMap<TKey, TValue> hashMap,
+            [NoAlias] this NativeParallelMultiHashMap<TKey, TValue> hashMap,
             [NoAlias] TKey key,
             [NoAlias] NativeArray<TValue> values)
             where TKey : unmanaged, IEquatable<TKey>
@@ -236,7 +236,7 @@ namespace NZNativeContainers.Extensions
         /// <typeparam name="TKey"> The key type. </typeparam>
         /// <typeparam name="TValue"> The value type. </typeparam>
         public static unsafe void AddBatch<TKey, TValue>(
-            [NoAlias] this NativeMultiHashMap<TKey, TValue> hashMap,
+            [NoAlias] this NativeParallelMultiHashMap<TKey, TValue> hashMap,
             TKey key,
             [NoAlias] TValue* values,
             int length)

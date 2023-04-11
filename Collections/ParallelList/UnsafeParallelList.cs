@@ -11,13 +11,13 @@ namespace NZNativeContainers
     public unsafe struct UnsafeParallelList<T> : INativeDisposable
         where T : unmanaged
     {
-        [NativeDisableUnsafePtrRestriction] private UnsafeParallelList<T>* self;
+        //[NativeDisableUnsafePtrRestriction] private UnsafeParallelList<T>* self;
         [NativeDisableUnsafePtrRestriction] private UnsafeParallelListHeader* header;
         [NativeDisableUnsafePtrRestriction] private PerThreadList* m_perThreadLists;
         [NativeDisableUnsafePtrRestriction] private UnsafeParallelListRange* Ranges;
 
+        private AllocatorManager.AllocatorHandle m_Allocator;
         public bool IsCreated;
-        internal AllocatorManager.AllocatorHandle m_Allocator;
 
         public int Length => Count();
         
@@ -28,14 +28,13 @@ namespace NZNativeContainers
         {
             UnsafeParallelList<T>* unsafeParallelList = allocator.Allocate(default(UnsafeParallelList<T>), 1);
 
-            unsafeParallelList->self = unsafeParallelList;
+            //unsafeParallelList->self = unsafeParallelList;
             unsafeParallelList->m_Allocator = allocator.Handle;
             
             int size = UnsafeUtility.SizeOf<PerThreadList>();
             int align = UnsafeUtility.AlignOf<PerThreadList>();
             int maxThreadCount = JobsUtility.MaxJobThreadCount;
-            
-            
+
             unsafeParallelList->m_perThreadLists = (PerThreadList*)UnsafeUtility.Malloc(size * maxThreadCount, align, allocator.ToAllocator);
             
             for (int i = 0; i < maxThreadCount; i++)
@@ -59,16 +58,25 @@ namespace NZNativeContainers
 
         public void SetChunkCount(int chunkCount)
         {
-            if (Ranges != null)
-                DeallocateRanges();
-            
+            bool sameChunkCount = chunkCount == header->chunkCount;
+            bool allocatedRanges = Ranges != null;
             int allocationSize = sizeof(UnsafeParallelListRange) * chunkCount;
+
+            if (sameChunkCount && allocatedRanges)
+            {
+                UnsafeUtility.MemClear(Ranges, allocationSize);
+            }
+            else
+            {
+                if (allocatedRanges)
+                    DeallocateRanges();
+
+                header->chunkCount = chunkCount;
             
-            header->chunkCount = chunkCount;
+                Ranges = (UnsafeParallelListRange*)Memory.Unmanaged.Allocate(allocationSize, UnsafeUtility.AlignOf<UnsafeParallelListRange>(), m_Allocator);
             
-            Ranges = (UnsafeParallelListRange*)Memory.Unmanaged.Allocate(allocationSize, UnsafeUtility.AlignOf<UnsafeParallelListRange>(), m_Allocator);
-            
-            UnsafeUtility.MemClear(Ranges, allocationSize);
+                UnsafeUtility.MemClear(Ranges, allocationSize);
+            }
         }
 
         public int GetChunkCount()

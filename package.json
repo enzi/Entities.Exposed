@@ -3,9 +3,8 @@
   "displayName": "Entities exposed",
   "version": "0.1.0",
   "unity": "2020.1",
-  "description": "",
   "dependencies": {
-    "com.unity.entities": "0.17.0-preview.42"
+    "com.unity.entities": "1.0.0-exp.8"
   },
   "unityRelease": "9f1",
   "keywords": [

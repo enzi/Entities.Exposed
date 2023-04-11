@@ -12,10 +12,10 @@ namespace NZNativeContainers.Extensions
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
 
-    /// <summary> Extensions for <see cref="NativeMultiHashMap{TKey,TValue}"/>. </summary>
+    /// <summary> Extensions for <see cref="NativeParallelMultiHashMap{TKey,TValue}"/>. </summary>
     public static class NativeMultiHashMapExtensions2
     {
-        public static unsafe void CalculateBuckets<TKey, TValue>(this NativeMultiHashMap<TKey, TValue> hashMap, NativeArray<TKey> keys)
+        public static unsafe void CalculateBuckets<TKey, TValue>(this NativeParallelMultiHashMap<TKey, TValue> hashMap, NativeArray<TKey> keys)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {
@@ -35,7 +35,7 @@ namespace NZNativeContainers.Extensions
         }
 
         public static RefEnumerator<TKey, TValue> GetRefValuesForKey<TKey, TValue>(
-            this NativeMultiHashMap<TKey, TValue> hashmap,
+            this NativeParallelMultiHashMap<TKey, TValue> hashmap,
             TKey key)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
@@ -47,7 +47,7 @@ namespace NZNativeContainers.Extensions
         }
 
         public static bool ContainsKeyFast<TKey, TValue>(
-            this NativeMultiHashMap<TKey, TValue> hashmap,
+            this NativeParallelMultiHashMap<TKey, TValue> hashmap,
             TKey key)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
@@ -56,7 +56,7 @@ namespace NZNativeContainers.Extensions
         }
 
         public static unsafe bool TryPeekFirstRefValue<TKey, TValue>(
-            this UnsafeMultiHashMap<TKey, TValue> m_MultiHashMapData,
+            this UnsafeParallelMultiHashMap<TKey, TValue> m_MultiHashMapData,
             TKey key)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
@@ -75,7 +75,7 @@ namespace NZNativeContainers.Extensions
         }
 
         public static unsafe bool TryPeekNextRefValue<TKey, TValue>(
-            this UnsafeMultiHashMap<TKey, TValue> m_MultiHashMapData,
+            this UnsafeParallelMultiHashMap<TKey, TValue> m_MultiHashMapData,
             TKey key,
             int entryIdx)
             where TKey : unmanaged, IEquatable<TKey>
@@ -107,12 +107,12 @@ namespace NZNativeContainers.Extensions
             where TKey : unmanaged, IEquatable<TKey> 
             where TValue : unmanaged
         {
-            public NativeMultiHashMap<TKey, TValue> hashmap;
+            public NativeParallelMultiHashMap<TKey, TValue> hashmap;
             public TKey key;
             public bool isFirst;
 
             private byte* value;
-            private NativeMultiHashMapIterator<TKey> iterator;
+            private NativeParallelMultiHashMapIterator<TKey> iterator;
 
             /// <summary>
             /// Does nothing.
@@ -148,10 +148,10 @@ namespace NZNativeContainers.Extensions
         }        
 
         public static unsafe bool TryGetFirstRefValue<TKey, TValue>(
-            this UnsafeMultiHashMap<TKey, TValue> m_MultiHashMapData,
+            this UnsafeParallelMultiHashMap<TKey, TValue> m_MultiHashMapData,
             TKey key,
             ref byte* item, 
-            out NativeMultiHashMapIterator<TKey> it)
+            out NativeParallelMultiHashMapIterator<TKey> it)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {
@@ -173,9 +173,9 @@ namespace NZNativeContainers.Extensions
         }       
 
         public static unsafe bool TryGetNextRefValue<TKey, TValue>(
-            this UnsafeMultiHashMap<TKey, TValue> m_MultiHashMapData,
+            this UnsafeParallelMultiHashMap<TKey, TValue> m_MultiHashMapData,
             ref byte* item,
-            ref NativeMultiHashMapIterator<TKey> it)
+            ref NativeParallelMultiHashMapIterator<TKey> it)
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {

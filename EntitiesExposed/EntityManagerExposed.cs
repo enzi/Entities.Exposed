@@ -63,76 +63,123 @@ namespace Unity.Entities.Exposed
         {
             return new StorageInfoExposed(systemBase.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore);
         }
-        
-        [GenerateTestsForBurstCompatibility]
-        public static UnsafeCDFE<T> GetUnsafeCDFE<T>(this ComponentSystemBase systemBase, bool isReadOnly) where T : unmanaged, IComponentData
+
+        public static void ManualIncrement(this EntityManager entityManager)
         {
-            systemBase.CheckedState()->AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
-            var entityManager = systemBase.EntityManager;
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            var ecs = entityManager.GetCheckedEntityDataAccess();
-            //var ecs = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var safetyHandles = &ecs->DependencyManager->Safety;
-#endif
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new UnsafeCDFE<T>(typeIndex, ecs, isReadOnly);
-#else
-            return new UnsafeCDFE<T>(typeIndex, ecs);
-#endif
+            entityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
         }
         
-        [GenerateTestsForBurstCompatibility]
-        public static UnsafeCDFE<T> GetUnsafeCDFE<T>(this SystemState systemState, bool isReadOnly) 
-            where T : unmanaged, IComponentData
-        {
-            systemState.AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
-            var entityManager = systemState.EntityManager;
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            var ecs = entityManager.GetCheckedEntityDataAccess();
-            //var ecs = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var safetyHandles = &ecs->DependencyManager->Safety;
-#endif
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new UnsafeCDFE<T>(typeIndex, ecs,isReadOnly);
-#else
-            return new UnsafeCDFE<T>(typeIndex, ecs);
-#endif
-        }
-
-        [GenerateTestsForBurstCompatibility]
-        public static UnsafeCDFE<T> GetUnsafeCDFE<T>(this EntityManager entityManager, bool isReadOnly) 
-            where T : unmanaged, IComponentData
-        {
-            //systemState.AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
-            //var entityManager = systemState.EntityManager;
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            var ecs = entityManager.GetCheckedEntityDataAccess();
-            //var ecs = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var safetyHandles = &ecs->DependencyManager->Safety;
-#endif
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new UnsafeCDFE<T>(typeIndex, ecs, isReadOnly);
-#else
-            return new UnsafeCDFE<T>(typeIndex, ecs);
-#endif
-        }
+//         [GenerateTestsForBurstCompatibility]
+//         public static UnsafeCDFE<T> GetUnsafeCDFE<T>(this ComponentSystemBase systemBase, bool isReadOnly) where T : unmanaged, IComponentData
+//         {
+//             systemBase.CheckedState()->AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+//             var entityManager = systemBase.EntityManager;
+//             var typeIndex = TypeManager.GetTypeIndex<T>();
+//             var ecs = entityManager.GetCheckedEntityDataAccess();
+//             //var ecs = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+//
+// #if ENABLE_UNITY_COLLECTIONS_CHECKS
+//             var safetyHandles = &ecs->DependencyManager->Safety;
+// #endif
+//
+// #if ENABLE_UNITY_COLLECTIONS_CHECKS
+//             return new UnsafeCDFE<T>(typeIndex, ecs, isReadOnly);
+// #else
+//             return new ComponentDataFromEntityExposed<T>(typeIndex, ecs);
+// #endif
+//         }
+//         
+//         [GenerateTestsForBurstCompatibility]
+//         public static UnsafeCDFE<T> GetUnsafeCDFE<T>(this SystemState systemState, bool isReadOnly) 
+//             where T : unmanaged, IComponentData
+//         {
+//             systemState.AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+//             var entityManager = systemState.EntityManager;
+//             var typeIndex = TypeManager.GetTypeIndex<T>();
+//             var ecs = entityManager.GetCheckedEntityDataAccess();
+//             //var ecs = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+//
+// #if ENABLE_UNITY_COLLECTIONS_CHECKS
+//             var safetyHandles = &ecs->DependencyManager->Safety;
+// #endif
+//
+// #if ENABLE_UNITY_COLLECTIONS_CHECKS
+//             return new UnsafeCDFE<T>(typeIndex, ecs,isReadOnly);
+// #else
+//             return new ComponentDataFromEntityExposed<T>(typeIndex, ecs);
+// #endif
+//         }
+//
+//         [GenerateTestsForBurstCompatibility]
+//         public static UnsafeCDFE<T> GetUnsafeCDFE<T>(this EntityManager entityManager, bool isReadOnly) 
+//             where T : unmanaged, IComponentData
+//         {
+//             //systemState.AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+//             //var entityManager = systemState.EntityManager;
+//             var typeIndex = TypeManager.GetTypeIndex<T>();
+//             var ecs = entityManager.GetCheckedEntityDataAccess();
+//             //var ecs = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+//
+// #if ENABLE_UNITY_COLLECTIONS_CHECKS
+//             var safetyHandles = &ecs->DependencyManager->Safety;
+// #endif
+//
+// #if ENABLE_UNITY_COLLECTIONS_CHECKS
+//             return new UnsafeCDFE<T>(typeIndex, ecs, isReadOnly);
+// #else
+//             return new ComponentDataFromEntityExposed<T>(typeIndex, ecs);
+// #endif
+//         }
 
         // [BurstCompatible]
         // public static EntityDataAccess* GetCheckedEntityDataAccess(this EntityManager entityManager)
         // {
         //     return entityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
         // }
+
+
+        /////////////////////////////
+        /// UnsafeComponentLookup ///
+        /////////////////////////////
         
-        
+        public static UnsafeComponentLookup<T> GetUnsafeComponentLookup<T>(this EntityManager entityManager, bool isReadOnly = false)
+            where T : unmanaged, IComponentData
+        {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            return GetUnsafeComponentLookup<T>(entityManager, typeIndex, isReadOnly);
+        }
+
+        internal static UnsafeComponentLookup<T> GetUnsafeComponentLookup<T>(this EntityManager entityManager, TypeIndex typeIndex, bool isReadOnly)
+            where T : unmanaged, IComponentData
+        {
+            var access = entityManager.GetCheckedEntityDataAccess();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var safetyHandles = &access->DependencyManager->Safety;
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            return new UnsafeComponentLookup<T>(typeIndex, access, isReadOnly);
+#else
+            return new UnsafeComponentLookup<T>(typeIndex, access);
+#endif
+        }
+
+        // public static UnsafeComponentLookup<T> GetUnsafeComponentLookup<T>(this SystemState systemState, bool isReadOnly) 
+        //     where T : unmanaged, IComponentData
+        // {
+        //     //CheckOnUpdate_Lookup();
+        //     systemState.AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+        //     return GetUnsafeComponentLookup<T>(systemState.EntityManager, isReadOnly);
+        // }
+        //
+        // public static UnsafeComponentLookup<T> GetUnsafeComponentLookup<T>(this ComponentSystemBase systemBase,bool isReadOnly) 
+        //     where T : unmanaged, IComponentData
+        // {
+        //     //CheckOnUpdate_Lookup();
+        //     systemBase.CheckedState()->AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+        //     return GetUnsafeComponentLookup<T>(systemBase.EntityManager, isReadOnly);
+        // }
     }
 
     [NativeContainer]
@@ -222,12 +269,11 @@ namespace Unity.Entities.Exposed
 
             var length = chunk.Count;
             int stride = archetype->SizeOfs[bufferComponentTypeHandle.m_Cache.IndexInArchetype];
-            var batchStartOffset = chunk.m_BatchStartEntityIndex * stride;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new BufferAccessor<T>(ptr + batchStartOffset, length, stride, bufferComponentTypeHandle.IsReadOnly, bufferComponentTypeHandle.m_Safety0, bufferComponentTypeHandle.m_Safety1, internalCapacity);
+            return new BufferAccessor<T>(ptr, length, stride, bufferComponentTypeHandle.IsReadOnly, bufferComponentTypeHandle.m_Safety0, bufferComponentTypeHandle.m_Safety1, internalCapacity);
 #else
-            return new BufferAccessor<T>(ptr + batchStartOffset, length, stride, internalCapacity);
+            return new BufferAccessor<T>(ptr, length, stride, internalCapacity);
 #endif
         }
 

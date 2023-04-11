@@ -101,14 +101,14 @@ namespace NZNativeContainers
         
         // helper jobs
         
-        public JobHandle CalculateBuckets(NativeArray<TValue> values, JobHandle Dependency)
-        {
-            return new CalculateBucketsJob()
-            {
-                hashmap = this,
-                values = values
-            }.Schedule(Dependency);
-        }
+        // public JobHandle CalculateBuckets(NativeArray<TValue> values, JobHandle Dependency)
+        // {
+        //     return new CalculateBucketsJob()
+        //     {
+        //         hashmap = this,
+        //         values = values
+        //     }.Schedule(Dependency);
+        // }
         
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
         public struct CalculateBucketsJob : IJob

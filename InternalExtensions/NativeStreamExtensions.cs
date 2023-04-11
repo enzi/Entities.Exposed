@@ -2,7 +2,7 @@
 //     Copyright (c) BovineLabs. All rights reserved.
 // </copyright>
 
-namespace BovineLabs.Core.Extensions
+namespace NZNativeContainers.Core.Extensions
 {
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;

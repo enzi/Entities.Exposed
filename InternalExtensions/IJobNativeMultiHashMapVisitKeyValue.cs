@@ -7,7 +7,7 @@
     using Unity.Jobs;
     using Unity.Jobs.LowLevel.Unsafe;
 
-    /// <summary> Job that visits each key value pair in a <see cref="NativeMultiHashMap{TKey,TValue}" />. </summary>
+    /// <summary> Job that visits each key value pair in a <see cref="NativeParallelMultiHashMap{TKey,TValue}" />. </summary>
     /// <typeparam name="TKey">The key type of the hash map.</typeparam>
     /// <typeparam name="TValue">The value type of the hash map.</typeparam>
     [JobProducerType(typeof(JobNativeMultiHashMapVisitKeyValue.JobNativeMultiHashMapVisitKeyValueProducer<,,>))]
@@ -16,7 +16,7 @@
         where TKey : struct, IEquatable<TKey>
         where TValue : struct
     {
-        /// <summary> Executes the next key value pair in the <see cref="NativeMultiHashMap{TKey, TValue}" />. </summary>
+        /// <summary> Executes the next key value pair in the <see cref="NativeParallelMultiHashMap{TKey, TValue}" />. </summary>
         /// <param name="key"> The key. </param>
         /// <param name="value"> The value. </param>
         void ExecuteNext(ref TKey key, ref TValue value);
@@ -36,7 +36,7 @@
         /// <returns> The handle to job. </returns>
         public static unsafe JobHandle ScheduleParallel<TJob, TKey, TValue>(
             this TJob jobData,
-            NativeMultiHashMap<TKey, TValue> hashMap,
+            NativeParallelMultiHashMap<TKey, TValue> hashMap,
             int minIndicesPerJobCount,
             JobHandle dependsOn = default)
             where TJob : struct, IJobNativeMultiHashMapVisitKeyValue<TKey, TValue>
@@ -67,9 +67,9 @@
             where TKey : unmanaged, IEquatable<TKey>
             where TValue : unmanaged
         {
-            /// <summary> The <see cref="NativeMultiHashMap{TKey,TValue}" />. </summary>
+            /// <summary> The <see cref="NativeParallelMultiHashMap{TKey,TValue}" />. </summary>
             [ReadOnly]
-            public NativeMultiHashMap<TKey, TValue> HashMap;
+            public NativeParallelMultiHashMap<TKey, TValue> HashMap;
 
             /// <summary> The job. </summary>
             internal TJob JobData;

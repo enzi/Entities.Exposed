@@ -137,9 +137,9 @@ namespace NZNativeContainers
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 m_Safety = parallelList.m_Safety;
                 CollectionHelper.SetStaticSafetyId(ref m_Safety, ref s_staticSafetyId.Data, "Unity.Collections.NativeStream.Writer");
-                
+
                 if (parallelList._unsafeParallelList->CheckRangesForNull())
-                    Debug.LogError($"Ranges have not been allocated. SetChunkCount(int chunkCount) before writing something.");
+                    Debug.LogError($"Ranges have not been allocated. SetChunkCount(int chunkCount) before writing something.");// {Environment.StackTrace}");
 #endif
             }
             
@@ -222,14 +222,14 @@ namespace NZNativeContainers
         
         // helper jobs
 
-        public JobHandle CopyParallelListToArrayMultiThreaded(ref NativeList<T> writer, JobHandle Dependency)
-        {
-            return new ParallelListToArrayMultiThreaded()
-            {
-                parallelList = this,
-                array = writer.AsParallelWriter()
-            }.ScheduleParallel(JobsUtility.MaxJobThreadCount, 1, Dependency);
-        }
+        // public JobHandle CopyParallelListToArrayMultiThreaded(ref NativeList<T> writer, JobHandle Dependency)
+        // {
+        //     return new ParallelListToArrayMultiThreaded()
+        //     {
+        //         parallelList = this,
+        //         array = writer.AsParallelWriter()
+        //     }.ScheduleParallel(JobsUtility.MaxJobThreadCount, 1, Dependency);
+        // }
         
         [BurstCompile(OptimizeFor = OptimizeFor.Performance)]
         private struct ParallelListToArrayMultiThreaded : IJobFor
