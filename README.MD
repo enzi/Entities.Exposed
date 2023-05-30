@@ -1,3 +1,6 @@
+# THIS REPO IS OUTDATED
+# USE https://github.com/enzi/NZCore INSTEAD
+
 # Entities.Exposed
 Helpful extensions for Entities, NativeContainer extensions and custom NativeContainers that I've used over the years in my codebase.
 Credits for DynamicHashMap and batch methods for NativeList/MultiHashMap go to [tertle](https://forum.unity.com/members/tertle.33474/).
